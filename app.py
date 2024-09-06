@@ -1,62 +1,72 @@
 import streamlit as st
+import requests
 import os
-from langchain_groq import ChatGroq
-from langchain_community.document_loaders import WebBaseLoader
-from langchain.embeddings import OllamaEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import create_retrieval_chain
-from langchain_community.vectorstores import FAISS
-import time
-
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
-## load the Groq API key
-groq_api_key=os.environ["GROQ_API_KEY"]
+# Hugging Face API key
+api_key = os.getenv(HUGGINGFACE_API_KEY)
+model_name = "amannaik/talkwithsrikrishna"  # You can use any public model, e.g., "gpt2" or "distilgpt2"
 
-if "vector" not in st.session_state:
-    st.session_state.embeddings=OllamaEmbeddings(model="models/manifests/registry.ollama.ai/library/nomic-embed-text")
-    st.session_state.loader=WebBaseLoader("https://raw.githubusercontent.com/amannaik247/krishnaji_chatbot/main/data/Cleaned_KrishnasConvo.csv")
-    st.session_state.docs=st.session_state.loader.load()
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    st.session_state.text_splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=200)
-    st.session_state.final_documents=st.session_state.text_splitter.split_documents(st.session_state.docs)
-    st.session_state.vectors=FAISS.from_documents(st.session_state.final_documents,st.session_state.embeddings)
+# Define a chat prompt template
+prompt_template = """
+The following is a conversation with Lord Krishna. Lord Krishna is helpful and understanding.He will always tell me the absolute truth.
 
-st.title("Talk to Lord Krishna")
-llm=ChatGroq(groq_api_key=groq_api_key,
-             model_name="llama-3.1-70b-versatile")
+User: {user_input}
+Lord Krishna:"""
 
-prompt=ChatPromptTemplate.from_template(
-"""
-Answer the question only based on the provided content.
-You are Lord Krishna from Mahabharata. Behave and talk like lord krishna. Start converstaions by saying Oh dear one.
-<context>
-{context}
-<context>
-Questions:{input}
-"""
+st.title("Chat with Lord Krishna")
 
-)
+# Function to generate response via Hugging Face API
+def generate_response(input_text):
+    # Combine all chat history for context
+    context = "\n".join([f"User: {msg['user']}\nBot: {msg['bot']}" for msg in st.session_state.messages])
+    
+    # Use the prompt template
+    prompt = prompt_template.format(user_input=input_text)
+    full_context = context + "\n" + prompt
 
-document_chain = create_stuff_documents_chain(llm, prompt)
-retriever = st.session_state.vectors.as_retriever()
-retrieval_chain = create_retrieval_chain(retriever, document_chain)
+    # API request to Hugging Face
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "inputs": full_context,
+        "parameters": {
+            "max_length": 100,
+            "temperature": 0.7,
+            "top_p": 0.9
+        }
+    }
+    response = requests.post(f"https://api-inference.huggingface.co/models/{model_name}", headers=headers, json=payload)
 
-prompt=st.text_input("Input you prompt here")
+    # Extract response text
+    generated_text = response.json()[0]['generated_text']
+    bot_response = generated_text.split("Bot:")[-1].strip()
+    return bot_response
 
-if prompt:
-    start=time.process_time()
-    response=retrieval_chain.invoke({"input":prompt})
-    print("Response time :",time.process_time()-start)
-    st.write(response['answer'])
+# User input
+user_input = st.text_input("You:", key="user_input")
 
-    # With a streamlit expander
-    with st.expander("Document Similarity Search"):
-        # Find the relevant chunks
-        for i, doc in enumerate(response["context"]):
-            st.write(doc.page_content)
-            st.write("--------------------------------")
+if st.button("Send"):
+    if user_input:
+        # Generate response
+        bot_response = generate_response(user_input)
+
+        # Update chat history
+        st.session_state.messages.append({"user": user_input, "bot": bot_response})
+
+        # Display chat history
+        for chat in st.session_state.messages:
+            st.write(f"**You:** {chat['user']}")
+            st.write(f"**Bot:** {chat['bot']}")
+            st.write("---")
+
+        # Clear input box after sending
+        st.session_state.user_input = ""
