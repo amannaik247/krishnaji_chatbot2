@@ -1,87 +1,81 @@
 import streamlit as st
-import requests
 import os
+from langchain_groq import ChatGroq
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains import create_retrieval_chain
+from langchain_community.vectorstores import FAISS
+from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from dotenv import load_dotenv
-
-# Load environment variables from the .env file
+import os
 load_dotenv()
 
-# Hugging Face API key
-api_key = os.getenv("HUGGINGFACE_API_KEY")
-model_name = "amannaik/talkwithsrikrishna"
+## load the GROQ And OpenAI API KEY 
+groq_api_key=os.getenv('GROQ_API_KEY')
+os.environ["GOOGLE_API_KEY"]=os.getenv("GOOGLE_API_KEY")
 
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+st.title("Gemma Model Document Q&A")
 
-# Define a chat prompt template
-prompt_template = """
-The following is a conversation with Lord Krishna. Lord Krishna is helpful and understanding. He will always tell me the absolute truth.
+llm=ChatGroq(groq_api_key=groq_api_key,
+             model_name="llama-3.1-70b-versatile")
 
-User: {user_input}
-Lord Krishna:"""
+prompt=ChatPromptTemplate.from_template(
+"""
+You are Lord Krishna. Lord Krishna will answer the questions based on the given context.
+You will also give the source of the sanskrit text from which you have taken the answer.
+You are given the following context from the document.
+<context>
+{context}
+<context>
+Questions:{input}
 
-st.title("Chat with Lord Krishna")
+"""
+)
 
-# Function to generate response via Hugging Face API
-def generate_response(input_text):
-    # Combine all chat history for context
-    context = "\n".join([f"User: {msg['user']}\nLord Krishna: {msg['bot']}" for msg in st.session_state.messages])
-    
-    # Use the prompt template
-    prompt = prompt_template.format(user_input=input_text)
-    full_context = context + "\n" + prompt
+def vector_embedding():
 
-    # API request to Hugging Face
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "inputs": full_context,
-        "parameters": {
-            "max_length": 100,
-            "temperature": 0.7,
-            "top_p": 0.9
-        }
-    }
-    response = requests.post(f"https://api-inference.huggingface.co/models/{model_name}", headers=headers, json=payload)
+    if "vectors" not in st.session_state:
 
-    # Log the full response for debugging
-    st.write(f"Response Status Code: {response.status_code}")
-    st.write(f"Response Text: {response.text}")
+        st.session_state.embeddings=GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
+        st.session_state.loader=PyPDFDirectoryLoader("./BhagwadGeeta") ## Data Ingestion
+        st.session_state.docs=st.session_state.loader.load() ## Document Loading
+        st.session_state.text_splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=200) ## Chunk Creation
+        st.session_state.final_documents=st.session_state.text_splitter.split_documents(st.session_state.docs[:20]) #splitting
+        st.session_state.vectors=FAISS.from_documents(st.session_state.final_documents,st.session_state.embeddings) #vector OpenAI embeddings
 
-    # Handle response
-    if response.status_code == 200:
-        try:
-            generated_text = response.json()[0]['generated_text']
-            bot_response = generated_text.split("Lord Krishna:")[-1].strip()
-            return bot_response
-        except Exception as e:
-            st.write(f"Error processing response: {e}")
-            return "Error: Unable to parse response."
-    else:
-        return "Error: Unable to generate a response."
 
-# Unique key for the text input widget
-user_input_key = "user_input_key"
 
-# User input
-user_input = st.text_input("You:", key=user_input_key)
 
-if st.button("Send"):
-    if user_input:
-        # Generate response
-        bot_response = generate_response(user_input)
 
-        # Update chat history
-        st.session_state.messages.append({"user": user_input, "bot": bot_response})
+prompt1=st.text_input("Enter Your Question From Documents")
 
-        # Display chat history
-        for chat in st.session_state.messages:
-            st.write(f"**You:** {chat['user']}")
-            st.write(f"**Lord Krishna:** {chat['bot']}")
-            st.write("---")
 
-        # Clear input box by setting the key to a unique value for re-rendering
-        st.text_input("You:", value="", key=user_input_key + "_clear")
+if st.button("Documents Embedding"):
+    vector_embedding()
+    st.write("Vector Store DB Is Ready")
+
+import time
+
+
+
+if prompt1:
+    document_chain=create_stuff_documents_chain(llm,prompt)
+    retriever=st.session_state.vectors.as_retriever()
+    retrieval_chain=create_retrieval_chain(retriever,document_chain)
+    start=time.process_time()
+    response=retrieval_chain.invoke({'input':prompt1})
+    print("Response time :",time.process_time()-start)
+    st.write(response['answer'])
+
+    # With a streamlit expander
+    with st.expander("Document Similarity Search"):
+        # Find the relevant chunks
+        for i, doc in enumerate(response["context"]):
+            st.write(doc.page_content)
+            st.write("--------------------------------")
+
+
+
+
