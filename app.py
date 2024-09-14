@@ -14,7 +14,7 @@ load_dotenv()
 
 ## load the GROQ And OpenAI API KEY 
 groq_api_key=os.getenv('GROQ_API_KEY')
-os.environ["GOOGLE_API_KEY"]=os.getenv("GOOGLE_API_KEY")
+os.environ["GOOGLE_API_KEY"]="GOOGLE_API_KEY"
 
 st.title("Chai with Lord Krishna")
 
