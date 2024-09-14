@@ -16,7 +16,7 @@ load_dotenv()
 groq_api_key=os.getenv('GROQ_API_KEY')
 os.environ["GOOGLE_API_KEY"]=os.getenv("GOOGLE_API_KEY")
 
-st.title("Gemma Model Document Q&A")
+st.title("Chai with Lord Krishna")
 
 llm=ChatGroq(groq_api_key=groq_api_key,
              model_name="llama-3.1-70b-versatile")
@@ -52,9 +52,9 @@ def vector_embedding():
 prompt1=st.text_input("Enter Your Question From Documents")
 
 
-if st.button("Documents Embedding"):
+if st.button("Prepare Chai"):
     vector_embedding()
-    st.write("Vector Store DB Is Ready")
+    st.write("Your chai is ready")
 
 import time
 
