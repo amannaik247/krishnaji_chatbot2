@@ -49,7 +49,7 @@ def vector_embedding():
 
 
 
-prompt1=st.text_input("First Prepare Chai, then enter your question")
+prompt1=st.text_input("First Prepare Chai, ask your question")
 
 
 if st.button("Prepare Chai"):
