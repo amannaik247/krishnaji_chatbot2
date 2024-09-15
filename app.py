@@ -49,12 +49,12 @@ def vector_embedding():
 
 
 
-prompt1=st.text_input("First Prepare Chai, ask your question")
+prompt1=st.text_input("First Prepare Chai, then enter your question")
 
 
 if st.button("Prepare Chai"):
     vector_embedding()
-    st.write("Your chai is ready")
+    st.write("Your chai is ready, ask anything!")
 
 import time
 
