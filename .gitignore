@@ -1,3 +1,4 @@
 /.env
 /venv
+/vectorize.py
 /app2.py
