@@ -29,7 +29,7 @@ llm = ChatGroq(groq_api_key=groq_api_key, model_name="llama-3.1-70b-versatile")
 
 # Initialize MongoDB client
 
-client = MongoClient(mongo_uri, ssl_cert_reqs=False)
+client = MongoClient(mongo_uri)
 db = client["krishnaji_chatbot"]  # Database name
 collection = db["bhagavad_gita"]  # Collection name
 
