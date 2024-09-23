@@ -60,7 +60,7 @@ vectorStore = MongoDBAtlasVectorSearch(
     collection, embeddings, index_name="vector_index"
 )
 
-docs = vectorStore.max_marginal_relevance_search(prompt1, K=1)
+docs = vectorStore.max_marginal_relevance_search(prompt1, k=1)
 compressor = LLMChainExtractor.from_llm(llm)
 
 
