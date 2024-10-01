@@ -12,6 +12,10 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
+
+CURRENT_THEME = "blue"
+IS_DARK_THEME = True
+
 ## load the GROQ And OpenAI API KEY 
 groq_api_key=os.getenv('GROQ_API_KEY')
 os.environ["GOOGLE_API_KEY"]=os.getenv("GOOGLE_API_KEY")
